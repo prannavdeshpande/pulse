@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+apps/web/node_modules/
+apps/web/.next/
+
+# Binaries & Executables
+*.exe
+*.exe~
+bin/
+apps/backend/bin/
+
+# Environment & Logs
+.env
+*.log

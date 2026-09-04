@@ -1,0 +1,111 @@
+services:
+  # --- MongoDB Database ---
+  mongodb:
+    image: mongo:7.0
+    container_name: pulse-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: pulse
+      MONGO_INITDB_ROOT_PASSWORD: pulsepassword
+      MONGO_INITDB_DATABASE: pulse_db
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - pulse-net
+
+  # --- Redis Cache & Event Bus ---
+  redis:
+    image: redis:7.0-alpine
+    container_name: pulse-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pulse-net
+
+  # --- PostgreSQL Database for Temporal Persistence ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: pulse-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporalpassword
+      POSTGRES_DB: temporal
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pulse-net
+
+  # --- Temporal Workflow Server ---
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: pulse-temporal
+    restart: always
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporalpassword
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    depends_on:
+      - postgres
+    networks:
+      - pulse-net
+
+  # --- Temporal Web UI ---
+  temporal-web:
+    image: temporalio/ui:2.28.0
+    container_name: pulse-temporal-web
+    restart: always
+    ports:
+      - "8233:8233"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,http://localhost:8233
+    depends_on:
+      - temporal
+    networks:
+      - pulse-net
+
+  # --- Ollama AI Model Server ---
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pulse-ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - pulse-net
+
+  # --- Mailpit Local Email Testing ---
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: pulse-mailpit
+    restart: always
+    ports:
+      - "1025:1025" # SMTP port
+      - "8025:8025" # Web UI
+    networks:
+      - pulse-net
+
+volumes:
+  mongodb_data:
+  redis_data:
+  postgres_data:
+  ollama_data:
+
+networks:
+  pulse-net:
+    driver: bridge
